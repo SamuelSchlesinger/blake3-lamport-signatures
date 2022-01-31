@@ -135,21 +135,44 @@ pub struct Signature {
     exposed: [u8; 8192],
 }
 
-#[test]
-fn end_to_end() -> Result<(), Box<dyn std::error::Error>> {
-    let secret = SecretKey::generate()?;
-    let public_key = secret.public_key();
-    let message = b"Hello, world!";
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use proptest::prelude::*;
 
-    let signature = secret.sign(message);
-    assert!(public_key.verify(message, &signature));
+    #[test]
+    fn end_to_end() -> Result<(), Box<dyn std::error::Error>> {
+        let secret = SecretKey::generate()?;
+        let public_key = secret.public_key();
+        let message = b"Hello, world!";
 
-    let faulty_message = b"Hello, not world!";
-    assert!(!public_key.verify(faulty_message, &signature));
+        let signature = secret.sign(message);
+        assert!(public_key.verify(message, &signature));
 
-    let faulty_signature = secret.sign(faulty_message);
-    assert!(!public_key.verify(message, &faulty_signature));
+        let faulty_message = b"Hello, not world!";
+        assert!(!public_key.verify(faulty_message, &signature));
 
-    assert!(public_key.verify(faulty_message, &faulty_signature));
-    Ok(())
+        let faulty_signature = secret.sign(faulty_message);
+        assert!(!public_key.verify(message, &faulty_signature));
+
+        assert!(public_key.verify(faulty_message, &faulty_signature));
+        Ok(())
+    }
+
+    proptest! {
+        #![proptest_config(ProptestConfig {
+            cases: 999, .. ProptestConfig::default()
+        })]
+
+        #[test]
+        fn really_works(s in "\\PC*") {
+            let secret = SecretKey::generate()?;
+            let public_key = secret.public_key();
+            let message = s.as_bytes();
+
+            let signature = secret.sign(message);
+            assert!(public_key.verify(message, &signature));
+        }
+
+    }
 }
