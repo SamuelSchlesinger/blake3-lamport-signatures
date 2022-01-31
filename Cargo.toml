@@ -6,7 +6,7 @@ description = "Lamport Signatures using the Blake 3 Cryptographic Hash Function"
 license = "MIT"
 homepage = "https://github.com/samuelSchlesinger/blake3-lamport-signatures"
 documentation = "https://docs.rs/blake3-lamport-signatures"
-repository = "git@github.com:SamuelSchlesinger/blake3-lamport-signatures.git"
+repository = "https://github.com/samuelSchlesinger/blake3-lamport-signatures"
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
