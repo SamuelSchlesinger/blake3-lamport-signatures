@@ -169,10 +169,6 @@ impl Tree {
         }
     }
 
-    pub(crate) fn root(&self) -> &Hash {
-        &self.root
-    }
-
     pub(crate) fn new<'a>(leaves: &mut impl Iterator<Item = &'a [u8]>) -> Self {
         let mut levels: VecDeque<Vec<Hash>> = VecDeque::new();
         levels.push_front(leaves.map(blake3::hash).collect());
@@ -210,6 +206,7 @@ impl Tree {
         }
     }
 
+    #[cfg(test)]
     pub(crate) fn verify<'a>(&self, leaves: &mut impl Iterator<Item = &'a [u8]>) -> bool {
         let other = Tree::new(leaves);
         *self == other

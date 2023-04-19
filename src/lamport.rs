@@ -11,19 +11,35 @@ pub struct PrivateKey {
     right: [u8; 8192],
 }
 
-impl PrivateKey {
-    /// Turns the private key into a single byte array
-    pub fn to_bytes(&self) -> [u8; 16384] {
-        let mut out = [0u8; 16384];
+impl From<&[u8; 16384]> for PrivateKey {
+    fn from(value: &[u8; 16384]) -> Self {
+        let mut left = [0u8; 8192];
+        let mut right = [0u8; 8192];
         for i in 0..8192 {
-            out[i] = self.left[i];
+            left[i] = value[i];
         }
         for i in 0..8192 {
-            out[i + 8192] = self.right[i];
+            right[i] = value[i + 8192];
+        }
+        PrivateKey { left, right }
+    }
+}
+
+impl From<&PrivateKey> for [u8; 16384] {
+    /// Turns the private key into a single byte array
+    fn from(private_key: &PrivateKey) -> [u8; 16384] {
+        let mut out = [0u8; 16384];
+        for i in 0..8192 {
+            out[i] = private_key.left[i];
+        }
+        for i in 0..8192 {
+            out[i + 8192] = private_key.right[i];
         }
         out
     }
+}
 
+impl PrivateKey {
     /// Generates a new private key using the operating system random
     /// number generator.
     pub fn generate() -> Result<PrivateKey, rand::Error> {
@@ -121,23 +137,56 @@ pub struct PublicKey {
     right_hashes: [[u8; 32]; 256],
 }
 
-impl PublicKey {
-    pub fn to_bytes(&self) -> [u8; 16384] {
+impl From<&[u8; 16384]> for PublicKey {
+    fn from(value: &[u8; 16384]) -> Self {
+        let mut left_hashes = [[0u8; 32]; 256];
+        let mut right_hashes = [[0u8; 32]; 256];
+
+        let mut i = 0;
+        for j in 0..256 {
+            for k in 0..32 {
+                left_hashes[j][k] = value[i];
+                i += 1;
+            }
+        }
+
+        for j in 0..256 {
+            for k in 0..32 {
+                right_hashes[j][k] = value[i];
+                i += 1;
+            }
+        }
+
+        PublicKey {
+            left_hashes,
+            right_hashes,
+        }
+    }
+}
+
+impl From<&PublicKey> for [u8; 16384] {
+    fn from(value: &PublicKey) -> Self {
         let mut out = [0u8; 16384];
         let mut i = 0;
         for j in 0..256 {
             for k in 0..32 {
-                out[i] = self.left_hashes[j][k];
+                out[i] = value.left_hashes[j][k];
                 i += 1;
             }
         }
         for j in 0..256 {
             for k in 0..32 {
-                out[i] = self.right_hashes[j][k];
+                out[i] = value.right_hashes[j][k];
                 i += 1;
             }
         }
         out
+    }
+}
+
+impl PublicKey {
+    pub fn to_bytes(&self) -> [u8; 16384] {
+        self.into()
     }
 
     pub fn verify<A: AsRef<[u8]>>(&self, message: A, signature: &Signature) -> bool {
