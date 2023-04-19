@@ -1,20 +1,31 @@
 # blake3-lamport-signatures
 
-Lamport signatures implemented using the `blake3` cryptographic
-hash function. This is an incredibly inefficient digital signature protocol
-and shouldn't be used under almost all circumstances, its main benefit being
-its simplicity and flexibility. The technique can be extended in all sorts
-of interesting ways to provide tradeoffs between signature size and private/public
-key size, with one famous extension being called a Merkle signature.
+Lamport, as well as Lamport-Merkle, signatures implemented using the `blake3`
+cryptographic hash function. This is an incredibly inefficient digital
+signature protocol and shouldn't be used under almost all circumstances, its
+main benefit being its simplicity and flexibility.
+
+Lamport keypairs should only be used to sign one message, while you can specify a
+number of messages to support in a Lamport-Merkle keypair.
 
 ```rust
+use blake3_lamport_signatures::lamport;
 
-let secret_key = SecretKey::generate()?;
-let public_key = SecretKey::public_key();
+let private_key = lamport::PrivateKey::generate()?;
+let public_key = private_key.public_key();
 let message = b"Yeah, I said it";
-let signature = secret_key.sign(message);
+let signature = private_key.sign(message);
 
 assert!(public_key.verify(message, &signature));
+
+use blake3_lamport_signatures::merkle;
+// generate a Merkle-Lamport private key capable of signing 100 messages
+let mut private_key = merkle::PrivateKey::generate(100);
+let public_key = private_key.public_key();
+let message = b"And I'll say it again!";
+let signature = private_key.sign(message);
+
+assert!(public_key.verify(message, &signature);
 ```
 
 ## Communication
