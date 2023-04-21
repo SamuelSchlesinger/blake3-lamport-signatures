@@ -3,6 +3,8 @@ pub mod internal;
 use crate::lamport;
 use crate::merkle::internal::*;
 
+pub use crate::merkle::internal::ProofDecodingError;
+
 /// A public key is the Merkle root of the tree in your [`PrivateKey`].
 pub struct PublicKey(Commitment);
 
@@ -67,7 +69,63 @@ impl From<(Vec<lamport::PrivateKey>, usize)> for PrivateKey {
 
 /// A signature consists of a lamport signature and a merkle proof of the
 /// public key used.
+#[derive(Debug, Eq, PartialEq)]
 pub struct Signature(lamport::Signature, lamport::PublicKey, Proof);
+
+#[derive(Debug)]
+pub enum SignatureDecodingError {
+    NotEnoughInput(usize),
+    MerkleProofDecodingError(ProofDecodingError),
+}
+
+impl From<&Signature> for Vec<u8> {
+    fn from(sig: &Signature) -> Self {
+        let mut output = Vec::new();
+        let lamport_sig_bytes: [u8; 8192] = sig.0.clone().into();
+        output.extend(lamport_sig_bytes.into_iter());
+
+        let lamport_pub_key_bytes: [u8; 16384] = (&sig.1).into();
+        output.extend(lamport_pub_key_bytes.into_iter());
+
+        let proof_bytes: Vec<u8> = (&sig.2).into();
+        output.extend(proof_bytes.into_iter());
+
+        output
+    }
+}
+
+impl TryFrom<&[u8]> for Signature {
+    type Error = SignatureDecodingError;
+    fn try_from(signature_bytes: &[u8]) -> Result<Self, Self::Error> {
+        let mut i = 0;
+        let next_byte = |i: &mut usize| {
+            if let Some(b) = signature_bytes.get(*i) {
+                *i += 1;
+                Ok(*b)
+            } else {
+                Err(SignatureDecodingError::NotEnoughInput(
+                    signature_bytes.len(),
+                ))
+            }
+        };
+        let mut lamport_signature_bytes = [0u8; 8192];
+        for j in 0..8192 {
+            lamport_signature_bytes[j] = next_byte(&mut i)?;
+        }
+        let lamport_signature = lamport::Signature::from(lamport_signature_bytes);
+
+        let mut lamport_public_key_bytes = [0u8; 16384];
+        for j in 0..16384 {
+            lamport_public_key_bytes[j] = next_byte(&mut i)?;
+        }
+        let lamport_public_key = lamport::PublicKey::from(&lamport_public_key_bytes);
+
+        let proof = Proof::try_from(&signature_bytes[i..])
+            .map_err(|e| SignatureDecodingError::MerkleProofDecodingError(e))?;
+
+        Ok(Signature(lamport_signature, lamport_public_key, proof))
+    }
+}
 
 impl PrivateKey {
     pub fn inner_keys(&self) -> &Vec<lamport::PrivateKey> {
@@ -131,6 +189,10 @@ mod tests {
             let mut private_key = PrivateKey::generate(1).unwrap();
             let public_key = private_key.public_key();
             let signature = private_key.sign(&s.as_bytes()).unwrap();
+            let signature_bytes: Vec<u8> = (&signature).into();
+            let signature_bytes_ref: &[u8] = &signature_bytes;
+            let signature_2: Signature = signature_bytes_ref.try_into().unwrap();
+            assert_eq!(signature, signature_2);
             assert!(public_key.verify(s.as_bytes(), &signature));
 
         }

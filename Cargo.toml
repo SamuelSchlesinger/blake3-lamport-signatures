@@ -1,6 +1,6 @@
 [package]
 name = "blake3-lamport-signatures"
-version = "0.3.4"
+version = "0.3.5"
 edition = "2021"
 description = "Lamport Signatures using the Blake 3 Cryptographic Hash Function"
 license = "MIT"

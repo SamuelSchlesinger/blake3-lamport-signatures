@@ -87,10 +87,126 @@ impl Commitment {
 /// A from 1 and 2. We reveal ancillary commitments to other data,
 /// such as 2 and B, but those commitments are zero-knowledge unless
 /// you can find collisions for the [`blake3::hash`] function.
+#[derive(Debug, Eq, PartialEq)]
 pub(crate) struct Proof {
     item: Vec<u8>,
     index: u64,
     frontier: Vec<ProofNode>,
+}
+
+#[derive(Debug)]
+pub enum ProofDecodingError {
+    NotEnoughInput(usize),
+    InvalidProofNodeType(u8),
+}
+
+impl TryFrom<&[u8]> for Proof {
+    type Error = ProofDecodingError;
+
+    fn try_from(encoded: &[u8]) -> Result<Self, Self::Error> {
+        if encoded.len() < 8 {
+            return Err(ProofDecodingError::NotEnoughInput(encoded.len()));
+        }
+
+        let mut i = 0;
+        let next_byte = |i: &mut usize| {
+            if let Some(&b) = encoded.get(*i) {
+                *i += 1;
+                Ok(b)
+            } else {
+                Err(ProofDecodingError::NotEnoughInput(encoded.len()))
+            }
+        };
+
+        let next_u64 = |mut i: &mut usize| {
+            let mut u64_bytes = [0u8; 8];
+            for j in 0..8 {
+                u64_bytes[j] = next_byte(&mut i)?;
+            }
+            Ok(u64::from_be_bytes(u64_bytes))
+        };
+
+        let next_n_bytes = |mut i: &mut usize, n: u64| {
+            let mut v = Vec::new();
+            for _ in 0..n {
+                v.push(next_byte(&mut i)?);
+            }
+            Ok(v)
+        };
+
+        let next_hash = |mut i: &mut usize| {
+            let mut hash_bytes = [0u8; 32];
+            for j in 0..32 {
+                hash_bytes[j] = next_byte(&mut i)?;
+            }
+            Ok(Hash::from(hash_bytes))
+        };
+
+        let next_frontier_node = |mut i: &mut usize| {
+            let tag = next_byte(&mut i)?;
+            match tag {
+                0 => Ok(ProofNode::NodeWithoutSibling),
+                1 => Ok(ProofNode::LeftChildWithSibling(next_hash(&mut i)?)),
+                2 => Ok(ProofNode::RightChildWithSibling(next_hash(&mut i)?)),
+                b => Err(ProofDecodingError::InvalidProofNodeType(b)),
+            }
+        };
+
+        let length = next_u64(&mut i)?;
+        let item: Vec<u8> = next_n_bytes(&mut i, length)?;
+
+        let index = next_u64(&mut i)?;
+        let length = next_u64(&mut i)?;
+
+        let mut frontier: Vec<ProofNode> = Vec::new();
+        for _ in 0..length {
+            frontier.push(next_frontier_node(&mut i)?);
+        }
+
+        Ok(Proof {
+            item,
+            index,
+            frontier,
+        })
+    }
+}
+
+impl From<&Proof> for Vec<u8> {
+    fn from(pf: &Proof) -> Self {
+        fn encode_proof_node(pf_node: &ProofNode, output: &mut Vec<u8>) {
+            match pf_node {
+                ProofNode::NodeWithoutSibling => {
+                    output.push(0);
+                }
+                ProofNode::LeftChildWithSibling(hash) => {
+                    let bytes: [u8; 32] = hash.clone().into();
+                    output.push(1);
+                    for i in 0..32 {
+                        output.push(bytes[i]);
+                    }
+                }
+                ProofNode::RightChildWithSibling(hash) => {
+                    let bytes: [u8; 32] = hash.clone().into();
+                    output.push(2);
+                    for i in 0..32 {
+                        output.push(bytes[i]);
+                    }
+                }
+            }
+        }
+
+        let mut output = Vec::new();
+        output.extend((pf.item.len() as u64).to_be_bytes().iter().copied());
+        output.extend(pf.item.iter().copied());
+        output.extend((pf.index as u64).to_be_bytes().iter().copied());
+        output.extend((pf.frontier.len() as u64).to_be_bytes().iter().copied());
+
+        for node in pf.frontier.iter() {
+            encode_proof_node(node, &mut output);
+        }
+
+        output
+    }
 }
 
 #[derive(PartialEq, Eq, Debug)]
@@ -243,6 +359,10 @@ fn test_tree() {
     fn test_prove(v: &Vec<&[u8]>) {
         let tree = Tree::new(&mut v.clone().into_iter());
         let mut proof = tree.prove(v[0].into(), 0).unwrap();
+        let v: Vec<u8> = (&proof).into();
+        let v_ref: &[u8] = &v;
+        let proof_2: Proof = v_ref.try_into().unwrap();
+        assert_eq!(proof, proof_2);
         let commitment = tree.commitment();
         assert!(commitment.verify(&proof));
         if modify_frontier(&mut proof.frontier) {
