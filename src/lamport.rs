@@ -214,6 +214,18 @@ pub struct Signature {
     exposed: [u8; 8192],
 }
 
+impl From<[u8; 8192]> for Signature {
+    fn from(exposed: [u8; 8192]) -> Self {
+        Signature { exposed }
+    }
+}
+
+impl From<Signature> for [u8; 8192] {
+    fn from(signature: Signature) -> Self {
+        signature.exposed
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;

@@ -24,8 +24,8 @@ pub(crate) struct Tree {
 /// A commitment to a binary Merkle tree.
 #[derive(PartialEq, Eq, Clone, Debug)]
 pub(crate) struct Commitment {
-    root: Hash,
-    num_items: u64,
+    pub(crate) root: Hash,
+    pub(crate) num_items: u64,
 }
 
 impl Commitment {

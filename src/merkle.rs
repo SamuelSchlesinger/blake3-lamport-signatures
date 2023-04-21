@@ -6,6 +6,37 @@ use crate::merkle::internal::*;
 /// A public key is the Merkle root of the tree in your [`PrivateKey`].
 pub struct PublicKey(Commitment);
 
+impl From<[u8; 40]> for PublicKey {
+    fn from(value: [u8; 40]) -> Self {
+        let mut hash_arr: [u8; 32] = [0u8; 32];
+        for i in 0..32 {
+            hash_arr[i] = value[i];
+        }
+        let mut u64_arr: [u8; 8] = [0u8; 8];
+        for i in 0..8 {
+            u64_arr[i] = value[32 + i];
+        }
+        PublicKey(Commitment {
+            root: blake3::Hash::from(hash_arr),
+            num_items: u64::from_be_bytes(u64_arr),
+        })
+    }
+}
+
+impl From<PublicKey> for [u8; 40] {
+    fn from(value: PublicKey) -> Self {
+        let mut arr = [0u8; 40];
+        for i in 0..32 {
+            arr[i] = value.0.root.as_bytes()[i];
+        }
+        let u64_arr = value.0.num_items.to_be_bytes();
+        for i in 0..8 {
+            arr[i + 32] = u64_arr[i];
+        }
+        arr
+    }
+}
+
 impl PublicKey {
     pub fn verify<A: AsRef<[u8]>>(&self, message: A, signature: &Signature) -> bool {
         self.0.verify(&signature.2) && signature.1.verify(message, &signature.0)
