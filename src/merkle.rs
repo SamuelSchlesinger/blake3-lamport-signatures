@@ -47,8 +47,8 @@ impl PublicKey {
 /// of Lamport public keys, one for each message you plan to sign.
 pub struct PrivateKey(Vec<lamport::PrivateKey>, Tree, usize);
 
-impl From<Vec<lamport::PrivateKey>> for PrivateKey {
-    fn from(private_keys: Vec<lamport::PrivateKey>) -> Self {
+impl From<(Vec<lamport::PrivateKey>, usize)> for PrivateKey {
+    fn from((private_keys, current_index): (Vec<lamport::PrivateKey>, usize)) -> Self {
         let encoded_public_keys: Vec<Vec<u8>> = private_keys
             .iter()
             .map(|private_key| {
@@ -61,7 +61,7 @@ impl From<Vec<lamport::PrivateKey>> for PrivateKey {
             })
             .collect();
         let tree = Tree::new(&mut encoded_public_keys.iter().map(|v| v.as_slice()));
-        PrivateKey(private_keys, tree, 0)
+        PrivateKey(private_keys, tree, current_index)
     }
 }
 
@@ -74,6 +74,10 @@ impl PrivateKey {
         &self.0
     }
 
+    pub fn current_index(&self) -> usize {
+        self.2
+    }
+
     pub fn public_key(&self) -> PublicKey {
         PublicKey(self.1.commitment())
     }
@@ -82,7 +86,7 @@ impl PrivateKey {
         let private_keys: Result<Vec<lamport::PrivateKey>, rand::Error> =
             (0..n).map(|_i| lamport::PrivateKey::generate()).collect();
         let private_keys = private_keys?;
-        Ok(private_keys.into())
+        Ok((private_keys, 0).into())
     }
 
     pub fn sign<A: AsRef<[u8]>>(&mut self, message: A) -> Option<Signature> {
