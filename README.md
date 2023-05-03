@@ -34,6 +34,24 @@ There is a natural two-party verified communication protocol associated with
 lamport signatures. Alice and Bob start with preshared `PublicKey`s, and each
 time they send a message, they include the `PublicKey` for the next message.
 
+## Merkle Signer
+
+There is an included program to generate and use Merkle signatures in
+`blake3-merkle-signer`. The API is:
+
+```
+Usage: signer <COMMAND>
+
+Commands:
+  key-gen
+  sign
+  verify
+  help     Print this message or the help of the given subcommand(s)
+
+Options:
+  -h, --help  Print help
+```
+
 ## Acknowledgements
 
 Leslie Lamport is a really cool dude.
