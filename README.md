@@ -1,5 +1,7 @@
 # blake3-lamport-signatures
 
+[![Rust](https://github.com/SamuelSchlesinger/blake3-lamport-signatures/actions/workflows/rust.yml/badge.svg)](https://github.com/SamuelSchlesinger/blake3-lamport-signatures/actions/workflows/rust.yml)
+
 Lamport, as well as Lamport-Merkle, signatures implemented using the `blake3`
 cryptographic hash function. This is an incredibly inefficient digital
 signature protocol and shouldn't be used under almost all circumstances, its
